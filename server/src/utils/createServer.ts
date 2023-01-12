@@ -1,27 +1,28 @@
-import fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import fastifyCors from "@fastify/cors";
 import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
 import { ApolloServer } from "apollo-server-fastify";
 import { ApolloServerPlugin } from "apollo-server-plugin-base";
-import { execute, GraphQLSchema, subscribe } from "graphql";
 import { SubscriptionServer } from "subscriptions-transport-ws";
+import fastify, { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { execute, GraphQLSchema, subscribe } from "graphql";
 import { buildSchema } from "type-graphql";
-import UserResolver from "../modules/user/user.resolver";
+import fastifyCors from "@fastify/cors";
 import fastifyCookie from "@fastify/cookie";
 import fastifyJwt from "@fastify/jwt";
+import UserResolver from "../modules/user/user.resolver";
+import { User } from "@prisma/client";
+import { bearerAuthChecker } from "./bearerAuthChecker";
+// import MessageResolver from "../modules/message/message.resolver";
 
 const app = fastify();
 
-const allowedOrigins = ["http://localhost:3000", "https://studio.apollographql.com"];
-
 app.register(fastifyCors, {
   credentials: true,
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      return callback(new Error("Origin not allowed"), false);
+  origin: (origin, cb) => {
+    if (!origin || ["http://localhost:3000", "https://studio.apollographql.com"].includes(origin)) {
+      return cb(null, true);
     }
+
+    return cb(new Error("Not allowed"), false);
   },
 });
 
@@ -30,7 +31,7 @@ app.register(fastifyCookie, {
 });
 
 app.register(fastifyJwt, {
-  secret: "change-later",
+  secret: "change-me",
   cookie: {
     cookieName: "token",
     signed: false,
@@ -49,28 +50,33 @@ function fastifyAppClosePlugin(app: FastifyInstance): ApolloServerPlugin {
   };
 }
 
-type BuildContextParams = {
+type CtxUser = Omit<User, "password">;
+
+async function buildContext({
+  request,
+  reply,
+  connectionParams,
+}: {
   request?: FastifyRequest;
   reply?: FastifyReply;
   connectionParams?: {
     Authorization: string;
   };
-};
-
-async function buildContext({ request, reply, connectionParams }: BuildContextParams) {
-  //for websocket connections
+}) {
   if (connectionParams || !request) {
     try {
-      return { user: await app.jwt.verify(connectionParams?.Authorization ?? "") };
-    } catch (err) {
+      return {
+        user: await app.jwt.verify<CtxUser>(connectionParams?.Authorization || ""),
+      };
+    } catch (e) {
       return { user: null };
     }
   }
-  //for regular connections
+
   try {
-    const user = await request?.jwtVerify();
+    const user = await request.jwtVerify<CtxUser>();
     return { request, reply, user };
-  } catch (err) {
+  } catch (e) {
     return { request, reply, user: null };
   }
 }
@@ -79,7 +85,8 @@ export type Context = Awaited<ReturnType<typeof buildContext>>;
 
 export async function createServer() {
   const schema = await buildSchema({
-    resolvers: [UserResolver],
+    resolvers: [UserResolver] /* MessageResolver */,
+    authChecker: bearerAuthChecker,
   });
 
   const server = new ApolloServer({
@@ -88,21 +95,18 @@ export async function createServer() {
     context: buildContext,
   });
 
+  subscriptionServer({ schema, server: app.server });
+
   return { app, server };
 }
 
-type SubscriptionServerParams = {
-  schema: GraphQLSchema;
-  server: ApolloServer;
-};
-
-const subscriptionServer = ({ schema, server }: SubscriptionServerParams) => {
+const subscriptionServer = ({ schema, server }: { schema: GraphQLSchema; server: typeof app.server }) => {
   return SubscriptionServer.create(
     {
       schema,
-      execute: execute,
-      subscribe: subscribe,
-      async onConnect(connectionParams: Object) {
+      execute,
+      subscribe,
+      async onConnect(connectionParams: { Authorization: string }) {
         return buildContext({ connectionParams });
       },
     },

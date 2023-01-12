@@ -17,7 +17,9 @@ export class User {
 
 @InputType()
 export class RegisterUserInput {
-  @Field({ nullable: false })
+  @Field({
+    nullable: false,
+  })
   username: string;
 
   @Field()
@@ -25,6 +27,33 @@ export class RegisterUserInput {
   email: string;
 
   @Field()
-  @Length(6, 48)
+  @Length(6, 56)
   password: string;
+}
+
+@InputType()
+export class LoginUserInput {
+  @Field({
+    nullable: false,
+  })
+  usernameOrEmail: string;
+
+  @Field()
+  @Length(6, 56)
+  password: string;
+}
+
+@ObjectType()
+export class UserFollowers {
+  @Field()
+  count: number;
+
+  @Field(() => [User])
+  items: User[];
+}
+
+@InputType()
+export class FollowUserInput {
+  @Field()
+  username: string;
 }
