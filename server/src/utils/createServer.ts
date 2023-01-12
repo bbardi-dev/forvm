@@ -11,6 +11,7 @@ import fastifyJwt from "@fastify/jwt";
 import UserResolver from "../modules/user/user.resolver";
 import { User } from "@prisma/client";
 import { bearerAuthChecker } from "./bearerAuthChecker";
+import MessageResolver from "../modules/message/message.resolver";
 // import MessageResolver from "../modules/message/message.resolver";
 
 const app = fastify();
@@ -85,7 +86,7 @@ export type Context = Awaited<ReturnType<typeof buildContext>>;
 
 export async function createServer() {
   const schema = await buildSchema({
-    resolvers: [UserResolver] /* MessageResolver */,
+    resolvers: [UserResolver, MessageResolver],
     authChecker: bearerAuthChecker,
   });
 
