@@ -16,14 +16,23 @@ model User {
   email String @unique
   username String @unique
   password String
-
+  avatar String
+  bio String
+  postsCount Int
+  threads Thread[]
+  posts Post[]
   followedBy User[] @relation("UserFollows")
   following User[] @relation("UserFollows")
 
-  Message Message[]
 }
 
-model Message {
+model Thread {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Post {
   id String @id @default(uuid())
   body String
   createdAt DateTime @default(now())

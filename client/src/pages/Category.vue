@@ -1,5 +1,8 @@
 <template>
-  <ForumList :title="category?.title" :forums="getForumsForCategory(category)" />
+  <ForumList
+    :title="category?.title"
+    :forums="getForumsForCategory(category)"
+  />
 </template>
 
 <script setup lang="ts">

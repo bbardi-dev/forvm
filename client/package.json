@@ -9,8 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "apollo-boost": "^0.4.9",
     "dayjs": "^1.11.7",
+    "graphql": "^16.6.0",
     "vue": "^3.2.45",
+    "vue-apollo": "^3.1.0",
     "vue-router": "4"
   },
   "devDependencies": {
